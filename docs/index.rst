@@ -22,6 +22,7 @@ Configuration
 
 * **The basics**:
   :doc:`Overview </manual/config/index>` |
+  :doc:`Starting Qtile </manual/config/starting>` |
   :doc:`Hooks </manual/config/hooks>`
 
 * **Config variables**:
@@ -57,6 +58,7 @@ Miscellaneous
 
 * :doc:`Frequently Asked Questions </manual/faq>`
 * :doc:`Hacking Qtile </manual/hacking>`
+* :doc:`Release notes </releases/index>`
 * :doc:`License </manual/license>`
 
 

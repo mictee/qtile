@@ -10,12 +10,12 @@ class WindowName(base._TextBox):
         ("font", "Arial", "Font face."),
         ("fontsize", None, "Font pixel size. Calculated if None."),
         ("padding", None, "Padding left and right."),
-        ("background", "000000", "Background colour."),
+        ("background", None, "Background colour."),
         ("foreground", "ffffff", "Foreground colour."),
     )
 
-    def __init__(self, **config):
-        base._TextBox.__init__(self, width=bar.STRETCH, **config)
+    def __init__(self, width=bar.STRETCH, **config):
+        base._TextBox.__init__(self, width=width, **config)
 
     def _configure(self, qtile, bar):
         base._TextBox._configure(self, qtile, bar)

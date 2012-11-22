@@ -261,6 +261,10 @@ class Xinerama:
 class RandR:
     def __init__(self, conn):
         self.ext = conn.conn(xcb.randr.key)
+        self.ext.SelectInput(
+            conn.default_screen.root.wid,
+            xcb.randr.NotifyMask.ScreenChange
+        )
 
     def query_crtcs(self, root):
         l = []
@@ -533,19 +537,22 @@ class Window:
                     "Must specify type for unknown property.")
             else:
                 type, _ = PropertyMap[prop]
-        r = self.conn.conn.core.GetProperty(
-            False, self.wid,
-            self.conn.atoms[prop] if isinstance(prop, basestring) else prop,
-            self.conn.atoms[type] if isinstance(type, basestring) else type,
-            0, (2 ** 32) - 1
-        ).reply()
+        try:
+            r = self.conn.conn.core.GetProperty(
+                False, self.wid,
+                self.conn.atoms[prop] if isinstance(prop, basestring) else prop,
+                self.conn.atoms[type] if isinstance(type, basestring) else type,
+                0, (2 ** 32) - 1
+            ).reply()
 
-        if not r.value_len:
+            if not r.value_len:
+                return None
+            elif unpack is not None:
+                return struct.unpack_from(unpack, r.value.buf())
+            else:
+                return r
+        except xcb.xproto.BadWindow:
             return None
-        elif unpack is not None:
-            return struct.unpack_from(unpack, r.value.buf())
-        else:
-            return r
 
     def list_properties(self):
         r = self.conn.conn.core.ListProperties(self.wid).reply()
@@ -666,11 +673,12 @@ class Connection:
         self.cursors = Cursors(self)
         self.setup = self.conn.get_setup()
         extensions = self.extensions()
+        self.screens = [Screen(self, i) for i in self.setup.roots]
+        self.default_screen = self.screens[self.conn.pref_screen]
         for i in extensions:
             if i in self._extmap:
                 setattr(self, i, self._extmap[i](self))
 
-        self.screens = [Screen(self, i) for i in self.setup.roots]
         self.pseudoscreens = []
         if "xinerama" in extensions:
             for i, s in enumerate(self.xinerama.query_screens()):
@@ -693,7 +701,6 @@ class Connection:
                 )
                 self.pseudoscreens.append(scr)
 
-        self.default_screen = self.screens[self.conn.pref_screen]
         self.atoms = AtomCache(self)
 
         self.code_to_syms = {}

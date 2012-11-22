@@ -1,3 +1,4 @@
+from backlight import Backlight
 from battery import Battery, BatteryIcon
 from clock import Clock
 from currentlayout import CurrentLayout
@@ -8,11 +9,13 @@ from notify import Notify
 from prompt import Prompt
 from sensors import ThermalSensor
 from sep import Sep
+from she import She
 from spacer import Spacer
 from systray import Systray
 from textbox import TextBox
 from volume import Volume
 from windowname import WindowName
+from windowtabs import WindowTabs
 
 try:
     from canto import Canto

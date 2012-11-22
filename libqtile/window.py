@@ -112,8 +112,8 @@ class _Window(command.CommandObject):
             # note that _float_info x and y are
             # really offsets, relative to screen x,y
             self._float_info = {
-                'x': g.x - qtile.currentScreen.x,
-                'y': g.y - qtile.currentScreen.y,
+                'x': g.x,
+                'y': g.y,
                 'w': g.width,
                 'h': g.height,
             }
@@ -242,7 +242,14 @@ class _Window(command.CommandObject):
         return
 
     def updateState(self):
-        self.fullscreen = self.window.get_net_wm_state() == 'fullscreen'
+        if not self.qtile.config.auto_fullscreen:
+            return
+        state = self.window.get_net_wm_state()
+        self.qtile.log.debug('_NET_WM_STATE: %s' % state)
+        if state == 'fullscreen':
+            self.fullscreen = True
+        else:
+            self.fullscreen = False
 
     @property
     def urgent(self):
@@ -526,6 +533,7 @@ class Internal(_Window):
                   EventMask.FocusChange |\
                   EventMask.Exposure |\
                   EventMask.ButtonPress |\
+                  EventMask.ButtonRelease |\
                   EventMask.KeyPress
 
     @classmethod
@@ -542,6 +550,11 @@ class Internal(_Window):
     def __repr__(self):
         return "Internal(%s, %s)" % (self.name, self.window.wid)
 
+    def kill(self):
+        self.qtile.conn.conn.core.DestroyWindow(self.window.wid)
+
+    def cmd_kill(self):
+        self.kill()
 
 class Static(_Window):
     """
@@ -887,15 +900,16 @@ class Window(_Window):
             return
         if getattr(self, 'floating', False):
             # only obey resize for floating windows
+            screen = self.group.screen
             cw = xcb.xproto.ConfigWindow
-            if e.value_mask & cw.X:
-                self.x = e.x
-            if e.value_mask & cw.Y:
-                self.y = e.y
             if e.value_mask & cw.Width:
                 self.width = e.width
             if e.value_mask & cw.Height:
                 self.height = e.height
+            if e.value_mask & cw.X:
+                self.x = screen.x + ((screen.width - self.width) // 2)
+            if e.value_mask & cw.Y:
+                self.y = screen.y + ((screen.height - self.height) // 2)
         if self.group and self.group.screen:
             self.place(
                 self.x,
@@ -910,6 +924,7 @@ class Window(_Window):
 
     def handle_PropertyNotify(self, e):
         name = self.qtile.conn.atoms.get_name(e.atom)
+        self.qtile.log.debug("PropertyNotifyEvent: %s" % name)
         if name == "WM_TRANSIENT_FOR":
             pass
         elif name == "WM_HINTS":
@@ -922,11 +937,21 @@ class Window(_Window):
             self.updateName()
         elif name == "_NET_WM_VISIBLE_NAME":
             self.updateName()
+        elif name == "WM_ICON_NAME":
+            pass
+        elif name == "_NET_WM_ICON_NAME":
+            pass
+        elif name == "ZOOM":
+            pass
         elif name == "_NET_WM_WINDOW_OPACITY":
+            pass
+        elif name == "WM_STATE":
             pass
         elif name == "_NET_WM_STATE":
             self.updateState()
         elif name == "WM_PROTOCOLS":
+            pass
+        elif name == "_NET_WM_DESKTOP":
             pass
         elif name == "_NET_WM_USER_TIME":
             if not self.qtile.config.follow_mouse_focus and \

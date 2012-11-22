@@ -104,12 +104,9 @@ class Battery(_Battery):
         *_Battery.defaults.defaults
     )
 
-    def __init__(self, low_percentage=0.10, width=bar.CALCULATED, **config):
-        base._TextBox.__init__(self, "BAT", **config)
+    def __init__(self, low_percentage=0.10, **config):
+        base._TextBox.__init__(self, "BAT", bar.CALCULATED, **config)
         self.low_percentage = low_percentage
-
-    def _configure(self, qtile, bar):
-        base._TextBox._configure(self, qtile, bar)
         self.timeout_add(self.update_delay, self.update)
 
     def _get_text(self):
@@ -148,10 +145,11 @@ class Battery(_Battery):
                            hour=hour, min=min)
 
     def update(self):
-        ntext = self._get_text()
-        if ntext != self.text:
-            self.text = ntext
-            self.bar.draw()
+        if self.configured:
+            ntext = self._get_text()
+            if ntext != self.text:
+                self.text = ntext
+                self.bar.draw()
         return True
 
 
@@ -184,11 +182,11 @@ class BatteryIcon(_Battery):
             'battery-full-charged',
         )])
         self.icons.update(self.custom_icons)
+        self.timeout_add(self.update_delay, self.update)
 
     def _configure(self, qtile, bar):
         base._TextBox._configure(self, qtile, bar)
         self.setup_images()
-        self.timeout_add(self.update_delay, self.update)
 
     def _get_icon_key(self):
         key = 'battery'
@@ -213,15 +211,16 @@ class BatteryIcon(_Battery):
         return key
 
     def update(self):
-        icon = self._get_icon_key()
-        if icon != self.current_icon:
-            self.current_icon = icon
-            self.draw()
+        if self.configured:
+            icon = self._get_icon_key()
+            if icon != self.current_icon:
+                self.current_icon = icon
+                self.draw()
         return True
 
     def draw(self):
         if self.theme_path:
-            self.drawer.clear(self.bar.background)
+            self.drawer.clear(self.background or self.bar.background)
             self.drawer.ctx.set_source(self.surfaces[self.current_icon])
             self.drawer.ctx.paint()
             self.drawer.draw(self.offset, self.width)

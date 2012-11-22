@@ -11,7 +11,7 @@ class Clock(base._TextBox):
         ("font", "Arial", "Clock font"),
         ("fontsize", None, "Clock pixel size. Calculated if None."),
         ("padding", None, "Clock padding. Calculated if None."),
-        ("background", "000000", "Background colour"),
+        ("background", None, "Background colour"),
         ("foreground", "ffffff", "Foreground colour")
     )
 
@@ -24,14 +24,12 @@ class Clock(base._TextBox):
         """
         self.fmt = fmt
         base._TextBox.__init__(self, " ", width, **config)
-
-    def _configure(self, qtile, bar):
-        base._TextBox._configure(self, qtile, bar)
         self.timeout_add(1, self.update)
 
     def update(self):
-        now = datetime.datetime.now().strftime(self.fmt)
-        if self.text != now:
-            self.text = now
-            self.bar.draw()
+        if self.configured:
+            now = datetime.datetime.now().strftime(self.fmt)
+            if self.text != now:
+                self.text = now
+                self.bar.draw()
         return True

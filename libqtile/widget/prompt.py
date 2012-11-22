@@ -247,7 +247,7 @@ class Prompt(base._TextBox):
         ("font", "Arial", "Font"),
         ("fontsize", None, "Font pixel size. Calculated if None."),
         ("padding", None, "Padding. Calculated if None."),
-        ("background", "000000", "Background colour"),
+        ("background", None, "Background colour"),
         ("foreground", "ffffff", "Foreground colour"),
         ("cursorblink", 0.5, "Cursor blink rate. 0 to disable.")
     )
@@ -261,8 +261,6 @@ class Prompt(base._TextBox):
 
     def _configure(self, qtile, bar):
         base._TextBox._configure(self, qtile, bar)
-        if self.cursorblink:
-            self.timeout_add(self.cursorblink, self._blink)
 
     def startInput(self, prompt, callback, complete=None):
         """
@@ -272,6 +270,10 @@ class Prompt(base._TextBox):
             from the user. When done, calls the callback with the input string
             as argument.
         """
+
+        if self.cursorblink and not self.active:
+            self.timeout_add(self.cursorblink, self._blink)
+
         self.active = True
         self.prompt = prompt
         self.userInput = ""
@@ -280,9 +282,29 @@ class Prompt(base._TextBox):
         self._update()
         self.bar.widget_grab_keyboard(self)
 
+    def _calculate_real_width(self):
+        if self.blink:
+            return min(self.layout.width,
+                self.bar.width) + self.actual_padding * 2
+        else:
+            _text = self.text
+            self.text = _text + "_"
+            width = min(self.layout.width,
+                self.bar.width) + self.actual_padding * 2
+            self.text = _text
+            return width
+
+    def calculate_width(self):
+        if self.text:
+            return self._calculate_real_width()
+        else:
+            return 0
+
     def _blink(self):
         self.blink = not self.blink
         self._update()
+        if not self.active:
+            return False
         return True
 
     def _update(self):
@@ -291,7 +313,7 @@ class Prompt(base._TextBox):
             if self.blink:
                 self.text = self.text + "_"
             else:
-                self.text = self.text + " "
+                self.text = self.text
         else:
             self.text = ""
         self.bar.draw()

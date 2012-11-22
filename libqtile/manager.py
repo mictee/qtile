@@ -476,7 +476,10 @@ class Group(command.CommandObject):
         self.windows.add(win)
         win.group = self
         try:
-            if self.floating_layout.match(win):
+            if (win.window.get_net_wm_state() == 'fullscreen' and
+                self.qtile.config.auto_fullscreen):
+                win._float_state = window.FULLSCREEN
+            elif self.floating_layout.match(win):
                 # !!! tell it to float, can't set floating
                 # because it's too early
                 # so just set the flag underneath
@@ -1375,6 +1378,9 @@ class Qtile(command.CommandObject):
         if e.event != self.root.wid:
             self.unmanage(e.window)
 
+    def handle_ScreenChangeNotify(self, e):
+        hook.fire("screen_change", self, e)
+
     def toScreen(self, n):
         """
         Have Qtile move to screen and put focus there
@@ -1672,6 +1678,11 @@ class Qtile(command.CommandObject):
                 self.groups[indexb], self.groups[indexa]
         hook.fire("setgroup")
         self.update_net_desktops()
+
+        # update window _NET_WM_DESKTOP
+        for group in (self.groups[indexa], self.groups[indexb]):
+            for window in group.windows:
+                window.group = group
 
     def cmd_togroup(self, prompt="group: ", widget="prompt"):
         """

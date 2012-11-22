@@ -53,9 +53,6 @@ class Floating(Layout):
         """
         if win.window.get_wm_type() in self.auto_float_types:
             return True
-        if win.window.get_net_wm_state() == 'fullscreen':
-            win._float_state = window.FULLSCREEN
-            return True
         for rule_dict in self.float_rules:
             if win.match(**rule_dict):
                 return True
@@ -90,7 +87,7 @@ class Floating(Layout):
             while new_x > right_edge:
                 new_x = (new_x - new_screen.x) / 2
             while new_y > bottom_edge:
-                new_y = (new_y - new_y.y) / 2
+                new_y = (new_y - new_screen.y) / 2
             win.x = new_x
             win.y = new_y
             win.group = new_screen.group
