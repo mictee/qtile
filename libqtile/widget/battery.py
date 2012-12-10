@@ -30,6 +30,8 @@ class _Battery(base._TextBox):
     defaults = manager.Defaults(
         ('font', 'Arial', 'Text font'),
         ('fontsize', None, 'Font pixel size. Calculated if None.'),
+        ("fontshadow", None,
+            "font shadow color, default is None(no shadow)"),
         ('padding', 3, 'Padding left and right. Calculated if None.'),
         ('background', None, 'Background colour.'),
         ('foreground', '#ffffff', 'Foreground colour.'),
@@ -108,6 +110,7 @@ class Battery(_Battery):
         base._TextBox.__init__(self, "BAT", bar.CALCULATED, **config)
         self.low_percentage = low_percentage
         self.timeout_add(self.update_delay, self.update)
+        self.update()
 
     def _get_text(self):
         info = self._get_info()
