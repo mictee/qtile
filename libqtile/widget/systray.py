@@ -1,4 +1,4 @@
-from .. import bar, manager, xcbq, window
+from .. import bar, xcbq, window
 import base
 
 import xcb
@@ -29,6 +29,9 @@ class Icon(window._Window):
             new_width = width / height * icon_size
             height = icon_size
             width = new_width
+        if height <= 0:
+            width, height = icon_size, icon_size
+
         self.width, self.height = width, height
         self.window.set_attribute(backpixmap=self.systray.drawer.pixmap)
         self.systray.draw()
@@ -88,14 +91,13 @@ class Systray(base._Widget):
     """
         A widget that manage system tray
     """
-    defaults = manager.Defaults(
-                ('icon_size', 20, 'Icon width'),
-                ('padding', 5, 'Padding between icons'),
-                ('background', None, 'Background colour'),
-            )
-
+    defaults = [
+        ('icon_size', 20, 'Icon width'),
+        ('padding', 5, 'Padding between icons'),
+    ]
     def __init__(self, **config):
         base._Widget.__init__(self, bar.CALCULATED, **config)
+        self.add_defaults(Systray.defaults)
         self.traywin = None
         self.icons = {}
 

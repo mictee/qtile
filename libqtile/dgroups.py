@@ -1,41 +1,10 @@
+import itertools
 import gobject
 
 import libqtile.hook
-from libqtile.manager import Key
+from libqtile.config import Key
 from libqtile.command import lazy
-
-
-class Match(object):
-    ''' Match for dynamic groups
-        it can match by title, class or role '''
-    def __init__(self, title=[], wm_class=[], role=[], wm_type=[]):
-        self._rules = [('title', t) for t in title]
-        self._rules += [('wm_class', w) for w in wm_class]
-        self._rules += [('role', r) for r in  role]
-        self._rules += [('wm_type', r) for r in  wm_type]
-
-    def compare(self, client):
-        for _type, rule in self._rules:
-            match_func = getattr(rule, 'match', None) or\
-                         getattr(rule, 'count')
-
-            if _type == 'title':
-                value = client.name
-            elif _type == 'wm_class':
-                value = client.window.get_wm_class()
-                if value and len(value)>1:
-                    value = value[1]
-                elif value:
-                    value = value[0]
-            elif _type == 'wm_type':
-                value = client.window.get_wm_type()
-            else:
-                value = client.window.get_wm_window_role()
-
-            if value and match_func(value):
-                return True
-        return False
-
+from libqtile.config import Group, Rule
 
 def simple_key_binder(mod, keynames=None):
     """
@@ -70,14 +39,15 @@ def simple_key_binder(mod, keynames=None):
 
     return func
 
-
 class DGroups(object):
     ''' Dynamic Groups '''
-    def __init__(self, qtile, groups, apps, key_binder=None, delay=1):
+    def __init__(self, qtile, dgroups, key_binder=None, delay=1):
         self.qtile = qtile
 
-        self.groups = groups
-        self.apps = apps
+        self.groups = dgroups
+        self.groupMap = {}
+        self.rules = getattr(qtile.config, 'dgroups_app_rules', [])
+
         self.keys = []
 
         self.key_binder = key_binder
@@ -89,14 +59,19 @@ class DGroups(object):
 
         self.timeout = {}
 
-    def _setup_groups(self):
-        for name, tag in self.groups.iteritems():
-            if tag.get('init') == True:
-                self.qtile.addGroup(name)
+    def add_dgroup(self, group, start=False):
+        self.groupMap[group.name] = group
+        rules = [Rule(m, group=group.name) for m in group.matches]
+        self.rules.extend(rules)
+        if start:
+            self.qtile.addGroup(group.name)
 
-            spawn_cmd = tag.get('spawn')
-            if spawn_cmd and not self.qtile.no_spawn:
-                self.qtile.cmd_spawn(spawn_cmd)
+    def _setup_groups(self):
+        for group in self.groups:
+            self.add_dgroup(group, group.init)
+
+            if group.spawn and not self.qtile.no_spawn:
+                self.qtile.cmd_spawn(group.spawn)
 
     def _setup_hooks(self):
         libqtile.hook.subscribe.client_new(self._add)
@@ -104,19 +79,8 @@ class DGroups(object):
         if self.key_binder:
             libqtile.hook.subscribe.setgroup(
                     lambda: self.key_binder(self))
-            libqtile.hook.subscribe.addgroup(
+            libqtile.hook.subscribe.changegroup(
                     lambda: self.key_binder(self))
-            libqtile.hook.subscribe.delgroup(
-                    lambda: self.key_binder(self))
-
-    def shuffle_groups(self, lst, match):
-        masters = []
-        for client in lst:
-            if match.compare(client):
-                masters.append(client)
-        for master in masters:
-            lst.remove(master)
-            lst.insert(0, master)
 
     def _add(self, client):
         if client in self.timeout:
@@ -131,43 +95,36 @@ class DGroups(object):
         group_set = False
         intrusive = False
 
-        for app in self.apps:
+        for rule in self.rules:
             # Matching Rules
-            if app['match'].compare(client):
-                if 'group' in app:
-                    group = app['group']
-                    group_added = self.qtile.addGroup(group)
-                    client.togroup(group)
+            if rule.matches(client):
+                if rule.group:
+                    group_added = self.qtile.addGroup(rule.group)
+                    client.togroup(rule.group)
 
                     group_set = True
 
-                    group_obj = self.qtile.groupMap[group]
-                    group_opts = self.groups.get(group)
-                    if group_opts:
+                    group_obj = self.qtile.groupMap[rule.group]
+                    group = self.groupMap.get(rule.group)
+                    if group:
                         if group_added:
-                            layout = group_opts.get('layout')
-                            ratio = group_opts.get('ratio')
-                            if layout:
-                                group_obj.layout = layout
-                            if ratio:
-                                group_obj.ratio = ratio
-                        master = group_opts.get('master')
-                        if master:
-                            group_obj.layout.shuffle(
-                                   lambda lst: self.shuffle_groups(
-                                       lst, master))
+                            for k, v in group.layout_opts:
+                                if callable(v):
+                                    v(group_obj.layout)
+                                else:
+                                    setattr(group_obj.layout, k, v)
 
-                if 'float' in app and app['float']:
+                if rule.float:
                     client.enablefloating()
 
-                if 'intrusive' in app:
-                    intrusive = app['intrusive']
+                if rule.intrusive:
+                    intrusive = rule.intrusive
 
         # If app doesn't have a group
         if not group_set:
             current_group = self.qtile.currentGroup.name
-            if current_group in self.groups and\
-                    self.groups[current_group].get('exclusive') and\
+            if current_group in self.groupMap and\
+                    self.groupMap[current_group].exclusive and\
                     not intrusive:
 
                 wm_class = client.window.get_wm_class()
@@ -184,7 +141,7 @@ class DGroups(object):
                     if not group_name:
                         group_name = "Unnamed"
 
-                self.qtile.addGroup(group_name)
+                self.add_dgroup(Group(group_name, persist=False), start=True)
                 client.togroup(group_name)
 
     def _del(self, client):
@@ -192,9 +149,9 @@ class DGroups(object):
 
         def delete_client():
             # Delete group if empty and dont persist
-            if group and not (group.name in self.groups and\
-               self.groups[group.name].get('persist')) and\
-                                   len(group.windows) <= 0:
+            if group and group.name in self.groupMap and \
+               not self.groupMap[group.name].persist and \
+               len(group.windows) <= 0:
                 self.qtile.delGroup(group.name)
 
         # wait the delay until really delete the group

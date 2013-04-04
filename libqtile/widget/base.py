@@ -1,4 +1,4 @@
-from .. import command, bar, manager, drawer
+from .. import command, bar, configurable, drawer
 import gobject
 import logging
 import threading
@@ -8,7 +8,7 @@ LEFT = object()
 CENTER = object()
 
 
-class _Widget(command.CommandObject):
+class _Widget(command.CommandObject, configurable.Configurable):
     """
         If width is set to the special value bar.STRETCH, the bar itself
         will set the width to the maximum remaining space, after all other
@@ -19,16 +19,23 @@ class _Widget(command.CommandObject):
         configured.
     """
     offset = None
-    defaults = manager.Defaults()
-
+    defaults = [
+        ("background", None, "Widget background color"),
+    ]
     def __init__(self, width, **config):
         """
             width: bar.STRETCH, bar.CALCULATED, or a specified width.
         """
         command.CommandObject.__init__(self)
         self.name = self.__class__.__name__.lower()
+        if "name" in config:
+            self.name = config["name"]
+
         self.log = logging.getLogger('qtile')
-        self.defaults.load(self, config)
+
+        configurable.Configurable.__init__(self, **config)
+        self.add_defaults(_Widget.defaults)
+
         if width in (bar.CALCULATED, bar.STRETCH):
             self.width_type = width
             self.width = 0
@@ -60,13 +67,6 @@ class _Widget(command.CommandObject):
                             self.bar.height
                       )
         self.configured = True
-
-    def resize(self):
-        """
-            Should be called whenever widget changes size.
-        """
-        self.bar.resize()
-        self.bar.draw()
 
     def clear(self):
         self.drawer.set_source_rgb(self.bar.background)
@@ -139,16 +139,7 @@ class _Widget(command.CommandObject):
             !Callback function should return False, otherwise it would be
             re-run forever!
         """
-        self.log.info('Adding timer')
-        if callable(callback):
-            def _thread(method, callback, args):
-                data = method(*args)
-                gobject.idle_add(callback, data)
-            method = threading.Thread(
-                target=_thread,
-                args=(method, callback, method_args)
-            ).start
-            method_args = ()
+        self.log.debug('Adding timer for %r in %.2fs', method, seconds)
         if int(seconds) == seconds:
             return gobject.timeout_add_seconds(
                 int(seconds), method, *method_args
@@ -165,20 +156,21 @@ UNSPECIFIED = bar.Obj("UNSPECIFIED")
 class _TextBox(_Widget):
     """
         Base class for widgets that are just boxes containing text.
-
-        If you derive from this class, you must add the following defaults:
-
-            font
-            fontsize
-            fontshadow
-            padding
-            background
-            foreground
     """
+    defaults = [
+        ("font", "Arial", "Default font"),
+        ("fontsize", None, "Font size. Calculated if None."),
+        ("padding", None, "Padding. Calculated if None."),
+        ("foreground", "ffffff", "Foreground colour"),
+        ("fontshadow", None,
+            "font shadow color, default is None(no shadow)"),
+    ]
+
     def __init__(self, text=" ", width=bar.CALCULATED, **config):
         self.layout = None
         _Widget.__init__(self, width, **config)
         self.text = text
+        self.add_defaults(_TextBox.defaults)
 
     @property
     def text(self):
@@ -201,19 +193,6 @@ class _TextBox(_Widget):
             self.layout.font = value
 
     @property
-    def fontsize(self):
-        if self._fontsize is None:
-            return self.bar.height - self.bar.height / 5
-        else:
-            return self._fontsize
-
-    @fontsize.setter
-    def fontsize(self, value):
-        self._fontsize = value
-        if self.layout:
-            self.layout.font_size = value
-
-    @property
     def fontshadow(self):
         return self._fontshadow
 
@@ -232,6 +211,8 @@ class _TextBox(_Widget):
 
     def _configure(self, qtile, bar):
         _Widget._configure(self, qtile, bar)
+        if self.fontsize is None:
+            self.fontsize = self.bar.height - self.bar.height / 5
         self.layout = self.drawer.textlayout(
                     self.text,
                     self.foreground,
@@ -251,7 +232,7 @@ class _TextBox(_Widget):
         self.drawer.clear(self.background or self.bar.background)
         self.layout.draw(
             self.actual_padding or 0,
-            int(self.bar.height / 2.0 - self.layout.height / 2.0)
+            int(self.bar.height / 2.0 - self.layout.height / 2.0) + 1
         )
         self.drawer.draw(self.offset, self.width)
 

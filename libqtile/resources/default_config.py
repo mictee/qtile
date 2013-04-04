@@ -1,37 +1,39 @@
-from libqtile.manager import Key, Screen, Group
+from libqtile.config import Key, Screen, Group
 from libqtile.command import lazy
 from libqtile import layout, bar, widget
+
+mod = "mod4"
 
 keys = [
     # Switch between windows in current stack pane
     Key(
-        ["mod1"], "k",
+        [mod], "k",
         lazy.layout.down()
     ),
     Key(
-        ["mod1"], "j",
+        [mod], "j",
         lazy.layout.up()
     ),
 
     # Move windows up or down in current stack
     Key(
-        ["mod1", "control"], "k",
+        [mod, "control"], "k",
         lazy.layout.shuffle_down()
     ),
     Key(
-        ["mod1", "control"], "j",
+        [mod, "control"], "j",
         lazy.layout.shuffle_up()
     ),
 
     # Switch window focus to other pane(s) of stack
     Key(
-        ["mod1"], "space",
+        [mod], "space",
         lazy.layout.next()
     ),
 
     # Swap panes of split stack
     Key(
-        ["mod1", "shift"], "space",
+        [mod, "shift"], "space",
         lazy.layout.rotate()
     ),
 
@@ -39,18 +41,19 @@ keys = [
     # Split = all windows displayed
     # Unsplit = 1 window displayed, like Max layout, but still with multiple stack panes
     Key(
-        ["mod1", "shift"], "Return",
+        [mod, "shift"], "Return",
         lazy.layout.toggle_split()
     ),
-    Key(["mod1"], "h",      lazy.to_screen(1)),
-    Key(["mod1"], "l",      lazy.to_screen(0)),
-    Key(["mod1"], "Return", lazy.spawn("xterm")),
+    Key([mod], "h",      lazy.to_screen(1)),
+    Key([mod], "l",      lazy.to_screen(0)),
+    Key([mod], "Return", lazy.spawn("xterm")),
 
     # Toggle between different layouts as defined below
-    Key(["mod1"], "Tab",    lazy.nextlayout()),
-    Key(["mod1"], "w",      lazy.window.kill()),
+    Key([mod], "Tab",    lazy.nextlayout()),
+    Key([mod], "w",      lazy.window.kill()),
 
-    Key(["mod1", "control"], "r", lazy.restart()),
+    Key([mod, "control"], "r", lazy.restart()),
+    Key([mod], "r", lazy.spawncmd()),
 ]
 
 groups = [
@@ -66,13 +69,16 @@ groups = [
 for i in groups:
     # mod1 + letter of group = switch to group
     keys.append(
-        Key(["mod1"], i.name, lazy.group[i.name].toscreen())
+        Key([mod], i.name, lazy.group[i.name].toscreen())
     )
 
     # mod1 + shift + letter of group = switch to & move focused window to group
     keys.append(
-        Key(["mod1", "shift"], i.name, lazy.window.togroup(i.name))
+        Key([mod, "shift"], i.name, lazy.window.togroup(i.name))
     )
+
+dgroups_key_binder = None
+dgroups_app_rules = []
 
 layouts = [
     layout.Max(),
@@ -84,8 +90,9 @@ screens = [
         bottom = bar.Bar(
                     [
                         widget.GroupBox(),
+                        widget.Prompt(),
                         widget.WindowName(),
-                        widget.TextBox("default", "default config"),
+                        widget.TextBox("default config", name="default"),
                         widget.Systray(),
                         widget.Clock('%Y-%m-%d %a %I:%M %p'),
                     ],
@@ -100,3 +107,4 @@ cursor_warp = False
 floating_layout = layout.Floating()
 mouse = ()
 auto_fullscreen = True
+widget_defaults = {}

@@ -1,7 +1,7 @@
 import glob
 import os
 import string
-from .. import bar, manager, xkeysyms, xcbq, command
+from .. import bar, xkeysyms, xcbq, command
 import base
 
 
@@ -283,19 +283,12 @@ class Prompt(base._TextBox):
         "window": WindowCompleter,
         None: NullCompleter
     }
-    defaults = manager.Defaults(
-        ("font", "Arial", "Font"),
-        ("fontsize", None, "Font pixel size. Calculated if None."),
-        ("fontshadow", None,
-            "font shadow color, default is None(no shadow)"),
-        ("padding", None, "Padding. Calculated if None."),
-        ("background", None, "Background colour"),
-        ("foreground", "ffffff", "Foreground colour"),
+    defaults = [
         ("cursorblink", 0.5, "Cursor blink rate. 0 to disable.")
-    )
-
+    ]
     def __init__(self, name="prompt", **config):
         base._TextBox.__init__(self, "", bar.CALCULATED, **config)
+        self.add_defaults(Prompt.defaults)
         self.name = name
         self.active = False
         self.blink = False
@@ -304,13 +297,19 @@ class Prompt(base._TextBox):
     def _configure(self, qtile, bar):
         base._TextBox._configure(self, qtile, bar)
 
-    def startInput(self, prompt, callback, complete=None):
+    def startInput(self, prompt, callback, complete=None, strict_completer=False):
         """
             complete: Tab-completion. Can be None, or "cmd".
 
             Displays a prompt and starts to take one line of keyboard input
             from the user. When done, calls the callback with the input string
             as argument.
+
+            prompt = text displayed at the prompt, e.g. "spawn: "
+            callback = function to call with returned value.
+            complete = completer to use.
+            strict_completer = When True the retuen value wil be the exact
+                               completer result where available.
         """
 
         if self.cursorblink and not self.active:
@@ -321,6 +320,7 @@ class Prompt(base._TextBox):
         self.userInput = ""
         self.callback = callback
         self.completer = self.completers[complete](self.qtile)
+        self.strict_completer = strict_completer
         self._update()
         self.bar.widget_grab_keyboard(self)
 
@@ -385,7 +385,10 @@ class Prompt(base._TextBox):
             elif keysym == xkeysyms.keysyms['Return']:
                 self.active = False
                 self.bar.widget_ungrab_keyboard()
-                self.callback(actual_value or self.userInput)
+                if self.strict_completer:
+                    self.callback(actual_value or self.userInput)
+                else:
+                    self.callback(self.userInput)
         self._update()
 
     def cmd_fake_keypress(self, key):

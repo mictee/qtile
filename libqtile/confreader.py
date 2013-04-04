@@ -62,11 +62,13 @@ class File(object):
             config = None
 
         # if you add something here, be sure to add a reasonable default value
-        # to resources/default-config.py
+        # to resources/default_config.py
         config_options = [
             "keys",
             "mouse",
             "groups",
+            "dgroups_key_binder",
+            "dgroups_app_rules",
             "follow_mouse_focus",
             "cursor_warp",
             "layouts",
@@ -74,13 +76,16 @@ class File(object):
             "screens",
             "main",
             "auto_fullscreen",
+            "widget_defaults",
         ]
 
         # We delay importing here to avoid a circular import issue when
         # testing.
         from resources import default_config
         for option in config_options:
-            v = getattr(default_config, option)
             if hasattr(config, option):
                 v = getattr(config, option)
-            setattr(self, option, v)
+            else:
+                v = getattr(default_config, option)
+            if not hasattr(self, option):
+                setattr(self, option, v)

@@ -441,8 +441,27 @@ class _Window(command.CommandObject):
             )
 
     def focus(self, warp):
+
+        # Workaround for misbehaving java applications (actually it might be
+        # qtile who misbehaves by not implementing some X11 protocol correctly).
+        #
+        # See this xmonad issue for more information on the problem:
+        # http://code.google.com/p/xmonad/issues/detail?id=177
+        #
+        # 'sun-awt-X11-XFramePeer' is a main window of a java application.
+        # Only send WM_TAKE_FOCUS not FocusIn
+        # 'sun-awt-X11-XDialogPeer' is a dialog of a java application. Do not
+        # send any event.
+
+        cls = self.window.get_wm_class() or ''
+        is_java_main = 'sun-awt-X11-XFramePeer' in cls
+        is_java_dialog = 'sun-awt-X11-XDialogPeer' in cls
+        is_java = is_java_main or is_java_dialog
+
         if not self.hidden:
-            if "WM_TAKE_FOCUS" in self.window.get_wm_protocols():
+            # Never send TAKE_FOCUS on java *dialogs*
+            if (not is_java_dialog and
+                    "WM_TAKE_FOCUS" in self.window.get_wm_protocols()):
                 vals = [
                     33,
                     32,
@@ -457,7 +476,9 @@ class _Window(command.CommandObject):
                 ]
                 e = struct.pack('BBHII5I', *vals)
                 self.window.send_event(e)
-            if self.hints['input']:
+
+            # Never send FocusIn to java windows
+            if not is_java and self.hints['input']:
                 self.window.set_input_focus()
             try:
                 if warp and self.qtile.config.cursor_warp:

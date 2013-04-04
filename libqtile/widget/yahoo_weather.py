@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from .. import bar, manager
+from .. import bar
 import base
 import urllib
 import urllib2
 from xml.dom import minidom
+import gobject
+import threading
 
 try:
     import json
@@ -29,15 +31,7 @@ class YahooWeather(base._TextBox):
             wind_chill, wind_direction, wind_speed
     '''
 
-    defaults = manager.Defaults(
-        ('font', 'Arial', 'Font'),
-        ('fontsize', None, 'Pixel size, calculated if None.'),
-        ("fontshadow", None,
-            "font shadow color, default is None(no shadow)"),
-        ('padding', None, 'Padding, calculated if None.'),
-        ('background', None, 'Background colour'),
-        ('foreground', 'ffffff', 'Foreground colour'),
-
+    defaults = [
         ## One of (location, woeid) must be set.
         ('location', None,
          'Location to fetch weather for. Ignored if woeid is set.'),
@@ -47,21 +41,30 @@ class YahooWeather(base._TextBox):
          'Display format'),
         ('metric', True, 'True to use metric/C, False to use imperial/F'),
         ('update_interval', 600, 'Update interval in seconds'),
-    )
+        ('up', '^', 'symbol for rising atmospheric pressure'),
+        ('down', 'v', 'symbol for falling atmospheric pressure'),
+        ('steady', 's', 'symbol for steady atmospheric pressure'),
+    ]
 
     def __init__(self, **config):
         base._TextBox.__init__(self, 'N/A', width=bar.CALCULATED, **config)
 
     def _configure(self, qtile, bar):
         base._TextBox._configure(self, qtile, bar)
-        self.timeout_add(
-            self.update_interval,
-            self.fetch_weather, (),
-            self.update
-        )
+        self.add_defaults(YahooWeather.defaults)
+        self.timeout_add(self.update_interval, self.wx_updater)
 
     def button_press(self, x, y, button):
         self.update(self.fetch_weather())
+
+    def wx_updater(self):
+        self.log.info('adding WX widget timer')
+        def worker():
+            data = self.fetch_weather()
+            gobject.idle_add(self.update, data)
+        threading.Thread(target=worker).start()
+        return True
+
 
     def update(self, data):
         if data:
@@ -116,4 +119,12 @@ class YahooWeather(base._TextBox):
             element = dom.getElementsByTagNameNS(WEATHER_NS, tag)[0]
             for attr in attrs:
                 data['%s_%s' % (tag, attr)] = element.getAttribute(attr)
+
+        if data['atmosphere_rising'] == '0':
+            data['atmosphere_rising'] = self.steady
+        elif data['atmosphere_rising'] == '1':
+            data['atmosphere_rising'] = self.up
+        elif data['atmosphere_rising'] == '2':
+            data['atmosphere_rising'] = self.down
+
         return data

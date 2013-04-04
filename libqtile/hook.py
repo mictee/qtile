@@ -1,4 +1,4 @@
-import manager
+import utils
 
 subscriptions = {}
 SKIPLOG = set()
@@ -50,6 +50,12 @@ class Subscribe:
             Called when group is deleted.
         """
         return self._subscribe("delgroup", func)
+
+    def changegroup(self, func):
+        """
+            Called whenever a group change occurs.
+        """
+        return self._subscribe("changegroup", func)
 
     def focus_change(self, func):
         """
@@ -190,7 +196,7 @@ class Unsubscribe(Subscribe):
         try:
             lst.remove(func)
         except ValueError:
-            raise manager.QtileError("Tried to unsubscribe a hook that was not"
+            raise utils.QtileError("Tried to unsubscribe a hook that was not"
                                      " currently subscribed")
 
 unsubscribe = Unsubscribe()
@@ -198,7 +204,7 @@ unsubscribe = Unsubscribe()
 
 def fire(event, *args, **kwargs):
     if event not in subscribe.hooks:
-        raise manager.QtileError("Unknown event: %s" % event)
+        raise utils.QtileError("Unknown event: %s" % event)
     if not event in SKIPLOG:
         qtile.log.info("Internal event: %s(%s, %s)" %
                       (event, args, kwargs))

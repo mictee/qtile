@@ -9,7 +9,9 @@ import libqtile.bar
 import libqtile.command
 import libqtile.widget
 import libqtile.manager
+import libqtile.config
 import libqtile.hook
+import libqtile.confreader
 import utils
 from utils import Xephyr
 from nose.tools import assert_raises
@@ -18,10 +20,10 @@ from nose.plugins.attrib import attr
 
 class TestConfig:
     groups = [
-        libqtile.manager.Group("a"),
-        libqtile.manager.Group("b"),
-        libqtile.manager.Group("c"),
-        libqtile.manager.Group("d")
+        libqtile.config.Group("a"),
+        libqtile.config.Group("b"),
+        libqtile.config.Group("c"),
+        libqtile.config.Group("d")
     ]
     layouts = [
                 libqtile.layout.stack.Stack(stacks=1),
@@ -31,19 +33,19 @@ class TestConfig:
     floating_layout = libqtile.layout.floating.Floating(
         float_rules=[dict(wmclass="xclock")])
     keys = [
-        libqtile.manager.Key(
+        libqtile.config.Key(
             ["control"],
             "k",
             libqtile.command._Call([("layout", None)], "up")
         ),
-        libqtile.manager.Key(
+        libqtile.config.Key(
             ["control"],
             "j",
             libqtile.command._Call([("layout", None)], "down")
         ),
     ]
     mouse = []
-    screens = [libqtile.manager.Screen(
+    screens = [libqtile.config.Screen(
             bottom=libqtile.bar.Bar(
                         [
                             libqtile.widget.GroupBox(),
@@ -57,10 +59,10 @@ class TestConfig:
 
 class BareConfig:
     groups = [
-        libqtile.manager.Group("a"),
-        libqtile.manager.Group("b"),
-        libqtile.manager.Group("c"),
-        libqtile.manager.Group("d")
+        libqtile.config.Group("a"),
+        libqtile.config.Group("b"),
+        libqtile.config.Group("c"),
+        libqtile.config.Group("d")
     ]
     layouts = [
                 libqtile.layout.stack.Stack(stacks=1),
@@ -68,19 +70,19 @@ class BareConfig:
             ]
     floating_layout = libqtile.layout.floating.Floating()
     keys = [
-        libqtile.manager.Key(
+        libqtile.config.Key(
             ["control"],
             "k",
             libqtile.command._Call([("layout", None)], "up")
         ),
-        libqtile.manager.Key(
+        libqtile.config.Key(
             ["control"],
             "j",
             libqtile.command._Call([("layout", None)], "down")
         ),
     ]
     mouse = []
-    screens = [libqtile.manager.Screen()]
+    screens = [libqtile.config.Screen()]
     main = None
     follow_mouse_focus = False
 
@@ -232,6 +234,7 @@ def test_setlayout(self):
 @Xephyr(False, TestConfig())
 def test_adddelgroup(self):
     self.testWindow("one")
+    self.c.addgroup("dummygroup")
     self.c.addgroup("testgroup")
     assert "testgroup" in self.c.groups().keys()
     self.c.window.togroup("testgroup")
@@ -239,7 +242,7 @@ def test_adddelgroup(self):
     assert not "testgroup" in self.c.groups().keys()
     # Assert that the test window is still a member of some group.
     assert sum([len(i["windows"]) for i in self.c.groups().values()])
-    for i in self.c.groups().keys()[:-1]:
+    for i in self.c.groups().keys()[:len(self.c.groups())-1]:
         self.c.delgroup(i)
     assert_raises(libqtile.command.CommandException,
                   self.c.delgroup, self.c.groups().keys()[0])
@@ -729,17 +732,17 @@ def qtile_tests():
 def test_init():
     assert_raises(
         libqtile.manager.QtileError,
-        libqtile.manager.Key,
+        libqtile.config.Key,
         [], "unknown", libqtile.command._Call("base", None, "foo")
     )
     assert_raises(
         libqtile.manager.QtileError,
-        libqtile.manager.Key,
+        libqtile.config.Key,
         ["unknown"], "x", libqtile.command._Call("base", None, "foo")
     )
 
 
-class TScreen(libqtile.manager.Screen):
+class TScreen(libqtile.config.Screen):
     def setGroup(self, x):
         pass
 
@@ -774,10 +777,10 @@ def test_dheight():
 
 class _Config:
     groups = [
-        libqtile.manager.Group("a"),
-        libqtile.manager.Group("b"),
-        libqtile.manager.Group("c"),
-        libqtile.manager.Group("d")
+        libqtile.config.Group("a"),
+        libqtile.config.Group("b"),
+        libqtile.config.Group("c"),
+        libqtile.config.Group("d")
     ]
     layouts = [
                 libqtile.layout.stack.Stack(stacks=1),
@@ -785,19 +788,19 @@ class _Config:
             ]
     floating_layout = libqtile.layout.floating.Floating()
     keys = [
-        libqtile.manager.Key(
+        libqtile.config.Key(
             ["control"],
             "k",
             libqtile.command._Call([("layout", None)], "up")
         ),
-        libqtile.manager.Key(
+        libqtile.config.Key(
             ["control"],
             "j",
             libqtile.command._Call([("layout", None)], "down")
         ),
     ]
     mouse = []
-    screens = [libqtile.manager.Screen(
+    screens = [libqtile.config.Screen(
             bottom=libqtile.bar.Bar(
                         [
                             libqtile.widget.GroupBox(),
@@ -810,8 +813,6 @@ class _Config:
 class ClientNewStaticConfig(_Config):
     @staticmethod
     def main(c):
-        import libqtile.hook
-
         def client_new(c):
             c.static(0)
         libqtile.hook.subscribe.client_new(client_new)
@@ -832,8 +833,6 @@ if utils.whereis("gkrellm"):
 class ToGroupConfig(_Config):
     @staticmethod
     def main(c):
-        import libqtile.hook
-
         def client_new(c):
             c.togroup("d")
         libqtile.hook.subscribe.client_new(client_new)
